@@ -43,15 +43,14 @@
 
 以下项目不应被当前“已整改”表述覆盖：
 
-1. **tag Release 验证**：真实仓库和 canonical module path 已配置为 `github.com/andycurise/kindle-kdash`，干净克隆与三系统 CI 已验证；tag Release 工作流仍需在发布时确认。
-2. **签名与供应链**：SHA-256 已接入，但 Authenticode、macOS 公证、Sigstore、SBOM 和 provenance 尚未配置。
-3. **Windows 未登录运行**：当前只支持登录计划任务；需要 SCM 服务时应另行设计、实现和 Win11 真机验收。
-4. **直接运行的默认路径**：未传 `-config` 时仍使用当前目录 `kdash.json`；正式安装器和服务模板使用显式路径。
-5. **天气循环取消粒度**：服务关闭会取消天气循环上下文，但底层天气 HTTP 请求尚未全部继承该上下文，极端网络条件下停止仍可能受客户端超时影响。
-6. **实例与运维**：尚未提供完整单实例锁、跨平台统一日志轮转和 SCM/Event Log 集成。
-7. **只读数据暴露**：图片、状态和配置公开视图可能包含城市与 SSH 主机信息，部署文档明确要求可信 LAN，不能将其视为公网匿名接口。
-8. **真实平台覆盖**：GitHub Actions 配置不等于 CI 已运行；Windows 11、Linux 和 Kindle 真机结果必须单独记录。
-9. **Git 历史**：审查工作区没有可用 `.git`，无法检查历史提交中的密钥、活动配置或被跟踪的忽略文件。公开前必须在真实仓库执行历史扫描。
+1. **签名与供应链**：SHA-256 已接入，但 Authenticode、macOS 公证、Sigstore、SBOM 和 provenance 尚未配置。
+2. **Windows 未登录运行**：当前只支持登录计划任务；需要 SCM 服务时应另行设计、实现和 Win11 真机验收。
+3. **直接运行的默认路径**：未传 `-config` 时仍使用当前目录 `kdash.json`；正式安装器和服务模板使用显式路径。
+4. **天气循环取消粒度**：服务关闭会取消天气循环上下文，但底层天气 HTTP 请求尚未全部继承该上下文，极端网络条件下停止仍可能受客户端超时影响。
+5. **实例与运维**：尚未提供完整单实例锁、跨平台统一日志轮转和 SCM/Event Log 集成。
+6. **只读数据暴露**：图片、状态和配置公开视图可能包含城市与 SSH 主机信息，部署文档明确要求可信 LAN，不能将其视为公网匿名接口。
+7. **真实平台覆盖**：Windows 11 已验收；Linux systemd 和 Kindle 真机结果必须单独记录，CI 不能替代目标平台验收。
+8. **Git 历史**：初始审查工作区没有可用 `.git`；发布仓库已按公开文件白名单建立，后续提交仍需检查密钥、活动配置和被跟踪的忽略文件。
 
 ## 建议的发布验收矩阵
 
@@ -78,8 +77,9 @@
 - 离线 HTTP 进程：18088→18089 保存重启、版本、鉴权、Gray PNG 和优雅停止通过。
 - 浏览器：字体草稿、令牌保存、重载持久化、错误令牌可见提示和 Kindle 灰度预览通过。
 - [GitHub CI 44886844593](https://github.com/andycurise/kindle-kdash/actions/runs/44886844593)：Ubuntu、Windows、macOS 15 原生测试，PowerShell 5.1/pwsh 双解析，ShellCheck，四平台归档和 macOS 安装器测试通过。
-- Windows 11 真机：PowerShell 5.1 下从 0.3.0 升级到 0.4.0、重复安装配置 SHA-256 不变、坏校验和拒绝且服务不中断、计划任务停止后进程退出、重启后健康检查及灰度 PNG 均通过。
+- [v0.4.0 Release 工作流](https://github.com/andycurise/kindle-kdash/actions/runs/44887554172)：测试、构建、归档检查和发布通过；八个实际发布资产完整，下载后五个归档 SHA-256 均通过。
+- Windows 11 真机：PowerShell 5.1 下从 0.3.0 升级到 0.4.0、重复安装配置 SHA-256 不变、坏校验和拒绝且服务不中断、计划任务停止后进程退出、重启后健康检查及灰度 PNG 均通过；使用真实 GitHub Release 联网重复安装且配置不变。
 
 ## 审查边界
 
-初始本地审查未执行真实天气、SSH、Kindle 部署、系统服务安装、计划任务修改、仓库推送或 Release 发布。后续已获授权完成 `main` 推送、GitHub CI 和 Win11 SSH/计划任务验收。Linux systemd、真实 LaunchAgent、Kindle framebuffer 和 tag Release 工作流仍未验证。
+初始本地审查未执行真实天气、SSH、Kindle 部署、系统服务安装、计划任务修改、仓库推送或 Release 发布。后续已获授权完成 `main`/`v0.4.0` 推送、GitHub CI/Release 和 Win11 SSH/计划任务验收。Linux systemd、真实 LaunchAgent 和 Kindle framebuffer 仍未验证。
