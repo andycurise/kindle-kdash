@@ -33,6 +33,6 @@
 
 - Windows 登录计划任务不是未登录运行的 SCM 服务。
 - 尚未提供 Authenticode、macOS 公证、Sigstore、SBOM 或 provenance。
-- GitHub 三系统 CI、tag Release 和真机安装结果需在对应环境验收。
+- tag Release、Linux systemd、真实 LaunchAgent 与 Kindle 真机结果仍需对应环境验收。
 
 [0.4.0]: https://github.com/andycurise/kindle-kdash/releases/tag/v0.4.0

@@ -43,7 +43,7 @@
 
 以下项目不应被当前“已整改”表述覆盖：
 
-1. **干净克隆与 CI 验证**：真实仓库和 canonical module path 已配置为 `github.com/andycurise/kindle-kdash`；推送后仍需确认干净克隆、三系统 CI 和 tag Release 工作流。
+1. **tag Release 验证**：真实仓库和 canonical module path 已配置为 `github.com/andycurise/kindle-kdash`，干净克隆与三系统 CI 已验证；tag Release 工作流仍需在发布时确认。
 2. **签名与供应链**：SHA-256 已接入，但 Authenticode、macOS 公证、Sigstore、SBOM 和 provenance 尚未配置。
 3. **Windows 未登录运行**：当前只支持登录计划任务；需要 SCM 服务时应另行设计、实现和 Win11 真机验收。
 4. **直接运行的默认路径**：未传 `-config` 时仍使用当前目录 `kdash.json`；正式安装器和服务模板使用显式路径。
@@ -77,8 +77,9 @@
 - macOS 安装器：使用临时 HOME、真实本地 Release 和 fake launchctl，首次安装、重复安装配置不变、坏校验和拒绝、保留配置卸载通过；未加载真实服务。
 - 离线 HTTP 进程：18088→18089 保存重启、版本、鉴权、Gray PNG 和优雅停止通过。
 - 浏览器：字体草稿、令牌保存、重载持久化、错误令牌可见提示和 Kindle 灰度预览通过。
-- 本机未提供 `pwsh`/`powershell`，未在本地执行 PowerShell 解释器级解析；CI 已配置 Windows PowerShell 5.1 和 pwsh 双重解析，但尚未实际触发。
+- [GitHub CI 44886844593](https://github.com/andycurise/kindle-kdash/actions/runs/44886844593)：Ubuntu、Windows、macOS 15 原生测试，PowerShell 5.1/pwsh 双解析，ShellCheck，四平台归档和 macOS 安装器测试通过。
+- Windows 11 真机：PowerShell 5.1 下从 0.3.0 升级到 0.4.0、重复安装配置 SHA-256 不变、坏校验和拒绝且服务不中断、计划任务停止后进程退出、重启后健康检查及灰度 PNG 均通过。
 
 ## 审查边界
 
-本次不执行真实天气、SSH、Kindle 部署、系统服务安装、计划任务修改、仓库推送或 Release 发布。未在目标平台实际运行的项目必须在交付说明中继续标记为“未验证”。
+初始本地审查未执行真实天气、SSH、Kindle 部署、系统服务安装、计划任务修改、仓库推送或 Release 发布。后续已获授权完成 `main` 推送、GitHub CI 和 Win11 SSH/计划任务验收。Linux systemd、真实 LaunchAgent、Kindle framebuffer 和 tag Release 工作流仍未验证。
