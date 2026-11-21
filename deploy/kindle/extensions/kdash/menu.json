@@ -1,0 +1,87 @@
+{
+  "items": [
+    {
+      "name": "日历看板",
+      "priority": 0,
+      "items": [
+        {
+          "name": "启动日历看板",
+          "priority": 1,
+          "action": "/mnt/us/extensions/kdash/start.sh",
+          "exitmenu": false,
+          "status": false
+        },
+        {
+          "name": "立即刷新一次",
+          "priority": 2,
+          "action": "/mnt/us/extensions/kdash/refresh.sh",
+          "exitmenu": false,
+          "status": false
+        },
+        {
+          "name": "重启日历看板",
+          "priority": 3,
+          "action": "/mnt/us/extensions/kdash/restart.sh",
+          "exitmenu": false,
+          "status": false
+        },
+        {
+          "name": "停止看板并恢复原生界面",
+          "priority": 4,
+          "action": "/mnt/us/extensions/kdash/stop.sh",
+          "exitmenu": false,
+          "status": false
+        },
+        {
+          "name": "查看运行状态与日志",
+          "priority": 5,
+          "action": "/mnt/us/extensions/kdash/status.sh",
+          "exitmenu": false,
+          "status": true
+        },
+        {
+          "name": "背光：定时模式 (白天亮/夜间灭)",
+          "priority": 6,
+          "action": "/mnt/us/extensions/kdash/light-schedule.sh",
+          "exitmenu": false,
+          "status": false
+        },
+        {
+          "name": "背光：彻底关闭 (省电/不刺眼)",
+          "priority": 7,
+          "action": "/mnt/us/extensions/kdash/light-off.sh",
+          "exitmenu": false,
+          "status": false
+        },
+        {
+          "name": "背光：常亮开启 (亮度10)",
+          "priority": 8,
+          "action": "/mnt/us/extensions/kdash/light-on.sh",
+          "exitmenu": false,
+          "status": false
+        },
+        {
+          "name": "安装/修复开机自启",
+          "priority": 9,
+          "action": "/mnt/us/extensions/kdash/install.sh",
+          "exitmenu": false,
+          "status": true
+        },
+        {
+          "name": "维护：启动WiFi SSH（无需重启）",
+          "priority": 10,
+          "action": "/mnt/us/extensions/kdash/ssh-install.sh",
+          "exitmenu": false,
+          "status": true
+        },
+        {
+          "name": "紧急恢复主页与移除自启",
+          "priority": 11,
+          "action": "/mnt/us/extensions/kdash/recovery.sh",
+          "exitmenu": false,
+          "status": true
+        }
+      ]
+    }
+  ]
+}

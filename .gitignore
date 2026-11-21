@@ -1,0 +1,40 @@
+# Local configuration and credentials
+/kdash.json
+/deploy/win11/kdash.json
+/deploy/kindle/client.conf
+/client.conf
+/.env
+*.local.json
+*.local.conf
+*kdash_key*
+*pubkey.txt*
+*.pem
+*.p12
+*.pfx
+*_host_key
+ssh_host_*_key
+
+# Runtime data
+/data/
+/cache_weather.json
+*.log
+
+# Build and package output
+/build/
+/dist/
+/kindle-staging/
+
+# Diagnostics and generated previews
+/diagnostics/
+/preview*.png
+/screen*.png
+
+# Editor and OS metadata
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Test coverage
+/coverage.out

@@ -1,0 +1,30 @@
+[Unit]
+Description=kdash Kindle calendar and weather dashboard
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=kdash
+Group=kdash
+WorkingDirectory=@KDASH_DATA_DIR@
+ExecStart=@KDASH_BINARY@ -config @KDASH_CONFIG@
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+
+# The service account is unprivileged. Only configuration and state are writable.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ReadWritePaths=@KDASH_DATA_DIR@ @KDASH_CONFIG_DIR@
+
+[Install]
+WantedBy=multi-user.target

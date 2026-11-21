@@ -1,0 +1,30 @@
+# Kindle 日历看板客户端配置（发布示例，不含活动配置或凭据）
+# 服务端渲染图片地址；部署时请改成实际 Windows/Linux/macOS 主机地址。
+SERVER_URL="http://192.168.1.100:8088/screen.png"
+
+# 可选设置令牌默认为空；如服务端启用令牌，请按客户端支持方式配置。
+# SETTINGS_TOKEN=""
+
+# 刷屏对齐周期（秒，默认 60 秒按分钟对齐）
+REFRESH_SECONDS=60
+
+# 残影定时清除间隔（秒，默认 3600 秒 = 1 小时）
+GHOST_CLEAR_SECONDS=3600
+
+# 触摸屏幕后暂停刷屏维护窗口（秒，默认 180 秒 = 3 分钟，0 为关闭）
+TOUCH_PAUSE_SECONDS=180
+
+# 前光模式: schedule (定时) / off (彻底关闭) / on (常亮)
+FRONTLIGHT_MODE="schedule"
+
+# 白天背光亮度 (0-24)
+DAY_BRIGHTNESS=10
+
+# 夜间背光亮度 (0 为彻底熄灭)
+NIGHT_BRIGHTNESS=0
+
+# 白天开始时间点（24 小时制）
+DAY_START_HOUR=7
+
+# 夜间熄灭时间点（24 小时制）
+NIGHT_START_HOUR=22

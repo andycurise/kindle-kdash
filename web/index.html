@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>kdash · Kindle 看板设置</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">k</span>
+      <div><strong>kdash</strong><span>Kindle 看板工作室</span></div>
+    </div>
+    <div class="topbar-status">
+      <span id="dirty-badge" class="badge badge-saved">已保存</span>
+      <span id="server-status" class="server-status">正在连接主机服务…</span>
+    </div>
+    <div class="topbar-actions">
+      <button id="undo-button" class="button button-quiet" type="button" disabled>撤销草稿</button>
+      <button id="save-button" class="button button-secondary" type="button">仅保存</button>
+      <button id="apply-button" class="button button-primary" type="button">保存并刷新</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <nav class="module-nav" aria-label="看板设置模块">
+      <div class="nav-heading">看板模块</div>
+      <button class="nav-item active" data-module="clock" type="button"><span>01</span>时钟</button>
+      <button class="nav-item" data-module="date" type="button"><span>02</span>日期与星期</button>
+      <button class="nav-item" data-module="lunar" type="button"><span>03</span>农历与节气</button>
+      <button class="nav-item" data-module="quote" type="button"><span>04</span>每日内容</button>
+      <div class="nav-heading nav-heading-data">数据功能区</div>
+      <button class="nav-item" data-module="current_weather" type="button"><span>05</span>当前天气</button>
+      <button class="nav-item" data-module="forecast" type="button"><span>06</span>三日预报</button>
+      <button class="nav-item" data-module="bottom_right" type="button"><span>07</span>环境数据卡</button>
+      <button class="nav-item" data-module="footer" type="button"><span>08</span>底部状态栏</button>
+      <div class="nav-heading">服务与设备</div>
+      <button class="nav-item" data-module="weather_source" type="button"><span>09</span>天气数据源</button>
+      <button class="nav-item" data-module="frontlight" type="button"><span>10</span>Kindle 前光</button>
+      <button class="nav-item" data-module="device" type="button"><span>11</span>显示与同步</button>
+    </nav>
+
+    <section class="preview-panel" aria-label="看板实时预览">
+      <div class="panel-heading preview-heading">
+        <div>
+          <h1>实时画布</h1>
+          <p>点击模块编辑；拖动动时钟、日期或每日内容。</p>
+        </div>
+        <div class="preview-tools">
+          <label class="sample-toggle"><input id="sample-toggle" type="checkbox"> 示例数据</label>
+          <div class="segmented" role="group" aria-label="预览方向">
+            <button class="active" data-view="landscape" type="button">横版编辑</button>
+            <button data-view="device" type="button">Kindle 效果</button>
+          </div>
+        </div>
+      </div>
+      <div id="preview-wrap" class="preview-wrap">
+        <div id="preview-stage" class="preview-stage">
+          <img id="preview-image" alt="kdash 看板实时渲染预览" draggable="false">
+          <div id="module-overlays" class="module-overlays"></div>
+          <div id="preview-loading" class="preview-loading" hidden>正在渲染…</div>
+        </div>
+      </div>
+      <div class="preview-footer">
+        <span id="preview-message">预览与 Kindle 图片使用同一个 Go 渲染器。</span>
+        <span>方向键微调 · Shift ×10 · +/- 调整字号</span>
+      </div>
+    </section>
+
+    <aside class="inspector" aria-label="模块属性">
+      <div class="panel-heading inspector-heading">
+        <div><span class="eyebrow">属性面板</span><h2 id="inspector-title">时钟</h2></div>
+        <button id="reset-module" class="icon-button" type="button" title="恢复此模块默认值">恢复默认</button>
+      </div>
+      <form id="inspector-form" autocomplete="off"></form>
+      <details class="token-panel">
+        <summary>访问安全</summary>
+        <label class="field field-stacked">
+          <span>设置访问令牌</span>
+          <input id="settings-token" type="password" placeholder="仅服务端已启用令牌时填写" autocomplete="off">
+        </label>
+        <p>令牌只保存在当前浏览器会话，不会写入看板配置。</p>
+      </details>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  powershell:
+    name: Windows PowerShell 5.1 parser
+    runs-on: windows-latest
+    steps:
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        name: Checkout
+      - name: Parse installers with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $files = @(Get-ChildItem -Path deploy/win11 -Filter *.ps1 -File -Recurse)
+          $files += Get-Item -Path scripts/install.ps1
+          $failed = $false
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $file.FullName, [ref]$tokens, [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              foreach ($parseError in $errors) {
+                Write-Error "$($file.FullName): $($parseError.Message)"
+              }
+            }
+          }
+          if ($failed) { exit 1 }
+
+  release:
+    needs: powershell
+    name: Test, package, and publish
+    runs-on: ubuntu-latest
+    steps:
+      # actions/checkout v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        name: Checkout
+        with:
+          fetch-depth: 0
+      # actions/setup-go v7.1.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5
+        name: Set up Go
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Validate tag and source formatting
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "v$(cat VERSION)"
+          files="$(gofmt -l .)"
+          if [ -n "$files" ]; then
+            printf 'Files requiring gofmt:\n%s\n' "$files" >&2
+            exit 1
+          fi
+      - name: Run tests and vet
+        run: |
+          go test ./...
+          go vet ./...
+      - name: Build and package release
+        run: ./scripts/package.sh
+      - name: Run offline HTTP process smoke tests
+        run: ./scripts/test-server-local.sh
+      - name: Verify release version, archives, and SHA256SUMS
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(cat VERSION)"
+          test "$GITHUB_REF_NAME" = "v$version"
+          test "$(./build/kdash-linux-amd64 -version)" = "$version"
+          kual_version="$(sed -n 's:.*<version>\([^<]*\)</version>.*:\1:p' deploy/kindle/extensions/kdash/config.xml | head -n 1)"
+          test "$kual_version" = "$version"
+
+          archives=(
+            kdash-windows-amd64.zip
+            kdash-darwin-arm64.tar.gz
+            kdash-linux-amd64.tar.gz
+            kdash-linux-arm64.tar.gz
+            kdash-kindle-pw2.zip
+          )
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 8
+          test -f dist/install.sh
+          test -f dist/install.ps1
+          test "$(wc -l < dist/SHA256SUMS)" -eq 5
+          awk 'NF != 2 || $2 ~ /\// { exit 1 }' dist/SHA256SUMS
+          (cd dist && sha256sum -c SHA256SUMS)
+
+          listing="$RUNNER_TEMP/kdash-release-archive-files.txt"
+          require_entry() {
+            grep -Fqx "$1" "$listing" || {
+              printf 'Missing archive entry: %s\n' "$1" >&2
+              exit 1
+            }
+          }
+          for archive in "${archives[@]}"; do
+            test -f "dist/$archive"
+            case "$archive" in
+              *.zip)
+                root="${archive%.zip}"
+                unzip -Z1 "dist/$archive" > "$listing"
+                ;;
+              *.tar.gz)
+                root="${archive%.tar.gz}"
+                tar -tzf "dist/$archive" > "$listing"
+                ;;
+            esac
+            awk -v prefix="$root/" 'index($0, prefix) != 1 || $0 ~ /(^|\/)\.\.(\/|$)/ { exit 1 }' "$listing"
+            require_entry "$root/LICENSE"
+            require_entry "$root/THIRD_PARTY_NOTICES.md"
+            require_entry "$root/assets/fonts/licenses/NotoSansSC-OFL.txt"
+            require_entry "$root/README.md"
+            case "$archive" in
+              kdash-windows-amd64.zip)
+                require_entry "$root/kdash.exe"
+                require_entry "$root/kdash.json.example"
+                require_entry "$root/install_task.ps1"
+                ;;
+              kdash-darwin-arm64.tar.gz)
+                require_entry "$root/kdash"
+                require_entry "$root/kdash.json.example"
+                require_entry "$root/com.kdash.agent.plist"
+                ;;
+              kdash-linux-*.tar.gz)
+                require_entry "$root/kdash"
+                require_entry "$root/kdash.json.example"
+                require_entry "$root/kdash.service"
+                ;;
+              kdash-kindle-pw2.zip)
+                require_entry "$root/kdash/client.conf"
+                require_entry "$root/kdash/sync-screen.sh"
+                require_entry "$root/extensions/kdash/config.xml"
+                cmp deploy/kindle/client.conf.example \
+                  <(unzip -p "dist/$archive" "$root/kdash/client.conf")
+                ;;
+            esac
+          done
+      - name: Create or update GitHub Release with gh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets=(
+            dist/kdash-windows-amd64.zip
+            dist/kdash-darwin-arm64.tar.gz
+            dist/kdash-linux-amd64.tar.gz
+            dist/kdash-linux-arm64.tar.gz
+            dist/kdash-kindle-pw2.zip
+            dist/SHA256SUMS
+            dist/install.sh
+            dist/install.ps1
+          )
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
+          elif [ -f "docs/release-notes/$GITHUB_REF_NAME.md" ]; then
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --title "kdash $(cat VERSION)" \
+              --notes-file "docs/release-notes/$GITHUB_REF_NAME.md"
+          else
+            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+              --title "kdash $(cat VERSION)" \
+              --generate-notes
+          fi
