@@ -16,7 +16,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-14
+          - macos-15
           - windows-latest
     steps:
       # actions/checkout v7.0.1
@@ -201,7 +201,7 @@ jobs:
 
   installer-macos:
     name: macOS local installer (fake launchctl)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       # actions/checkout v7.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
