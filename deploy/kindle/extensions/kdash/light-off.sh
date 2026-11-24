@@ -8,6 +8,7 @@ if [ -f "$CONF" ]; then
         echo 'FRONTLIGHT_MODE="off"' >> "$CONF"
     fi
 fi
+rm -f /var/tmp/kdash-remote.conf
 
 # 1. 通知 powerd 框架
 lipc-set-prop -i com.lab126.powerd flIntensity 0 2>/dev/null || true

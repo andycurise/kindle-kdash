@@ -8,6 +8,7 @@ if [ -f "$CONF" ]; then
         echo 'FRONTLIGHT_MODE="schedule"' >> "$CONF"
     fi
 fi
+rm -f /var/tmp/kdash-remote.conf
 
 # 同步通知服务端（如果在线）
 . /mnt/us/extensions/kdash/frontlight-api.sh

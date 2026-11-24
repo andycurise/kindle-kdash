@@ -8,6 +8,7 @@ if [ -f "$CONF" ]; then
         echo 'FRONTLIGHT_MODE="on"' >> "$CONF"
     fi
 fi
+rm -f /var/tmp/kdash-remote.conf
 
 # 脉冲触发恢复背光，避免底层因之前写 0 而未被 powerd 刷新
 lipc-set-prop -i com.lab126.powerd flIntensity 0 2>/dev/null || true

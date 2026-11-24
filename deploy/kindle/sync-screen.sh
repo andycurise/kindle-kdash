@@ -3,14 +3,18 @@
 # 纯 Shell 实现，内存开销 < 1MB，彻底消除 OOM 与崩溃重启隐患。
 # 架构：从 Win11 服务端拉取渲染好的灰度图片，使用 Kindle 原生 eips 命令刷屏。
 
-KD=/mnt/us/kdash
+KD="${KDASH_DIR:-/mnt/us/kdash}"
+TMP_DIR="${KDASH_TMP:-/var/tmp}"
 CONF="$KD/client.conf"
-LOG="/var/tmp/kdash-client.log"
-PIDFILE="/var/tmp/kdash.pid"
-TOUCH_FILE="/var/tmp/kdash-touch-active"
-CUR_PNG="/var/tmp/screen_current.png"
-NEW_PNG="/var/tmp/screen_new.png"
-FBDUMP="/var/tmp/kdash-fb.dump"
+LOG="$TMP_DIR/kdash-client.log"
+PIDFILE="$TMP_DIR/kdash.pid"
+TOUCH_FILE="$TMP_DIR/kdash-touch-active"
+CUR_PNG="$TMP_DIR/screen_current.png"
+NEW_PNG="$TMP_DIR/screen_new.$$.png"
+FBDUMP="$TMP_DIR/kdash-fb.dump"
+REMOTE_CONF_CACHE="$TMP_DIR/kdash-remote.conf"
+WIFI_RECOVER_THRESHOLD="${WIFI_RECOVER_THRESHOLD:-3}"
+WIFI_RECOVER_COOLDOWN="${WIFI_RECOVER_COOLDOWN:-300}"
 
 # 默认参数（如果配置文件不存在）
 SERVER_URL="http://192.168.1.99:8088/screen.png"
@@ -51,61 +55,126 @@ load_config() {
 # 初始加载配置
 load_config
 
-# 从远端服务端获取 /client.conf，实现 Web 设置修改即时下发
+# 逐字段白名单解析远端配置文件（绝不 source 远端文本）
+apply_remote_config_file() {
+    conf_file="$1"
+    [ -f "$conf_file" ] || return 1
+    parsed_count=0
+    while IFS='=' read -r raw_key raw_val || [ -n "$raw_key" ]; do
+        key=$(echo "$raw_key" | tr -d ' \t\r\n')
+        case "$key" in
+            \#*|"") continue ;;
+        esac
+        val=$(echo "$raw_val" | tr -d '\r' | sed -e 's/^[ \t"'\''"]*//' -e 's/[ \t"'\''"]*$//')
+        case "$key" in
+            FRONTLIGHT_MODE)
+                case "$val" in
+                    schedule|off|on)
+                        FRONTLIGHT_MODE="$val"
+                        parsed_count=$((parsed_count + 1))
+                        ;;
+                esac
+                ;;
+            DAY_BRIGHTNESS)
+                case "$val" in
+                    ''|*[!0-9]*) ;;
+                    *)
+                        if [ "$val" -ge 0 ] && [ "$val" -le 24 ]; then
+                            DAY_BRIGHTNESS="$val"
+                            parsed_count=$((parsed_count + 1))
+                        fi
+                        ;;
+                esac
+                ;;
+            NIGHT_BRIGHTNESS)
+                case "$val" in
+                    ''|*[!0-9]*) ;;
+                    *)
+                        if [ "$val" -ge 0 ] && [ "$val" -le 24 ]; then
+                            NIGHT_BRIGHTNESS="$val"
+                            parsed_count=$((parsed_count + 1))
+                        fi
+                        ;;
+                esac
+                ;;
+            DAY_START_HOUR)
+                case "$val" in
+                    ''|*[!0-9]*) ;;
+                    *)
+                        if [ "$val" -ge 0 ] && [ "$val" -le 23 ]; then
+                            DAY_START_HOUR="$val"
+                            parsed_count=$((parsed_count + 1))
+                        fi
+                        ;;
+                esac
+                ;;
+            NIGHT_START_HOUR)
+                case "$val" in
+                    ''|*[!0-9]*) ;;
+                    *)
+                        if [ "$val" -ge 0 ] && [ "$val" -le 23 ]; then
+                            NIGHT_START_HOUR="$val"
+                            parsed_count=$((parsed_count + 1))
+                        fi
+                        ;;
+                esac
+                ;;
+            GHOST_CLEAR_SECONDS)
+                case "$val" in
+                    ''|*[!0-9]*) ;;
+                    *)
+                        if [ "$val" -ge 0 ]; then
+                            GHOST_CLEAR_SECONDS="$val"
+                            parsed_count=$((parsed_count + 1))
+                        fi
+                        ;;
+                esac
+                ;;
+        esac
+    done < "$conf_file"
+    [ "$parsed_count" -gt 0 ]
+}
+
+# 从远端服务端获取 /client.conf，实现 Web 设置修改即时下发；
+# 断网时沿用最近一次合法的远端缓存，避免回退到本地旧配置导致误开背光。
 fetch_remote_config() {
     base_url=$(echo "$SERVER_URL" | sed -e 's|/screen\.png.*||' -e 's|/*$||')
     conf_url="${base_url}/client.conf"
-    tmp_conf="/var/tmp/client.conf.remote"
+    tmp_conf="${TMP_DIR}/client.conf.remote.$$"
 
-    if wget -q -T 5 -O "$tmp_conf" "$conf_url" 2>/dev/null; then
-        while IFS='=' read -r raw_key raw_val || [ -n "$raw_key" ]; do
-            key=$(echo "$raw_key" | tr -d ' \t\r\n')
-            case "$key" in
-                \#*|"") continue ;;
-            esac
-            val=$(echo "$raw_val" | tr -d '\r' | sed -e 's/^[ \t"'\''"]*//' -e 's/[ \t"'\''"]*$//')
-            case "$key" in
-                FRONTLIGHT_MODE)
-                    case "$val" in
-                        schedule|off|on) FRONTLIGHT_MODE="$val" ;;
-                    esac
-                    ;;
-                DAY_BRIGHTNESS)
-                    case "$val" in
-                        ''|*[!0-9]*) ;;
-                        *) [ "$val" -ge 0 ] && [ "$val" -le 24 ] && DAY_BRIGHTNESS="$val" ;;
-                    esac
-                    ;;
-                NIGHT_BRIGHTNESS)
-                    case "$val" in
-                        ''|*[!0-9]*) ;;
-                        *) [ "$val" -ge 0 ] && [ "$val" -le 24 ] && NIGHT_BRIGHTNESS="$val" ;;
-                    esac
-                    ;;
-                DAY_START_HOUR)
-                    case "$val" in
-                        ''|*[!0-9]*) ;;
-                        *) [ "$val" -ge 0 ] && [ "$val" -le 23 ] && DAY_START_HOUR="$val" ;;
-                    esac
-                    ;;
-                NIGHT_START_HOUR)
-                    case "$val" in
-                        ''|*[!0-9]*) ;;
-                        *) [ "$val" -ge 0 ] && [ "$val" -le 23 ] && NIGHT_START_HOUR="$val" ;;
-                    esac
-                    ;;
-                GHOST_CLEAR_SECONDS)
-                    case "$val" in
-                        ''|*[!0-9]*) ;;
-                        *) [ "$val" -ge 0 ] && GHOST_CLEAR_SECONDS="$val" ;;
-                    esac
-                    ;;
-            esac
-        done < "$tmp_conf"
-        rm -f "$tmp_conf"
+    if wget -q -T 5 -O "$tmp_conf" "$conf_url" 2>/dev/null && apply_remote_config_file "$tmp_conf"; then
+        mv -f "$tmp_conf" "$REMOTE_CONF_CACHE" 2>/dev/null || rm -f "$tmp_conf"
         return 0
     fi
+
+    rm -f "$tmp_conf"
+    if [ -f "$REMOTE_CONF_CACHE" ]; then
+        if [ -f "$CONF" ] && [ "$CONF" -nt "$REMOTE_CONF_CACHE" ] 2>/dev/null; then
+            # 本地 client.conf 在离线期间被手动更新（如 KUAL 切背光），优先尊重本地修改
+            return 1
+        fi
+        apply_remote_config_file "$REMOTE_CONF_CACHE" || true
+    fi
     return 1
+}
+
+# 连续拉图失败时尝试唤醒 Wi-Fi 并关闭无线节能，避免驱动重载后长期失联
+recover_wifi_if_needed() {
+    now_ts="$1"
+    if [ "$FAIL_COUNT" -lt "$WIFI_RECOVER_THRESHOLD" ] 2>/dev/null; then
+        return 0
+    fi
+    if [ $((now_ts - LAST_WIFI_RECOVER)) -lt "$WIFI_RECOVER_COOLDOWN" ] 2>/dev/null; then
+        return 0
+    fi
+    LAST_WIFI_RECOVER="$now_ts"
+    echo "$(date '+%H:%M:%S') 连续 ${FAIL_COUNT} 次拉取失败，尝试恢复 Wi-Fi 连接..."
+    lipc-set-prop com.lab126.cmd wirelessEnable 1 2>/dev/null || true
+    lipc-set-prop -i com.lab126.wifid enable 1 2>/dev/null || true
+    iwconfig wlan0 power off 2>/dev/null || true
+    if ! ifconfig wlan0 2>/dev/null | grep -q 'inet addr:'; then
+        lipc-set-prop -s com.lab126.cmd ensureConnection "wifi" 2>/dev/null || true
+    fi
 }
 
 set_frontlight() {
@@ -200,6 +269,7 @@ if [ "$1" = "-once" ] || [ "$1" = "once" ]; then
     if wget -q -T 15 -O "$NEW_PNG" "$REQ_URL"; then
         if eips -g "$NEW_PNG"; then
             cp "$NEW_PNG" "$CUR_PNG"
+            rm -f "$NEW_PNG"
             echo "刷屏完成。"
             exit 0
         else
@@ -209,6 +279,7 @@ if [ "$1" = "-once" ] || [ "$1" = "once" ]; then
         fi
     else
         echo "拉取图片失败，请检查网络或服务端：$REQ_URL"
+        rm -f "$NEW_PNG"
         exit 1
     fi
 fi
@@ -231,7 +302,7 @@ cleanup_and_restore() {
     if [ -n "$TOUCH_PID" ]; then
         kill "$TOUCH_PID" 2>/dev/null || true
     fi
-    rm -f "$PIDFILE" "$TOUCH_FILE" "$CUR_PNG"
+    rm -f "$PIDFILE" "$TOUCH_FILE" "$CUR_PNG" "$NEW_PNG" "${TMP_DIR}/client.conf.remote.$$"
     sh "$KD/restore.sh"
     exit 0
 }
@@ -285,6 +356,8 @@ calc_refresh_delay() {
 }
 
 LAST_GHOST=$(date +%s)
+FAIL_COUNT=0
+LAST_WIFI_RECOVER=0
 rm -f "$CUR_PNG" "$TOUCH_FILE"
 
 # 启动时立即生效背光策略
@@ -294,6 +367,19 @@ apply_frontlight_policy
 FIRST_RUN=1
 
 while true; do
+    # 防止旧实例残留并发争抢：若已有更新的 PID 接管，静默退出
+    if [ -f "$PIDFILE" ]; then
+        CUR_PID=$(cat "$PIDFILE" 2>/dev/null || echo "")
+        if [ -n "$CUR_PID" ] && [ "$CUR_PID" != "$$" ]; then
+            echo "$(date '+%H:%M:%S') 检测到新实例 (PID: $CUR_PID)，当前旧实例 (PID: $$) 退出"
+            if [ -n "$TOUCH_PID" ]; then
+                kill "$TOUCH_PID" 2>/dev/null || true
+            fi
+            rm -f "$NEW_PNG" "${TMP_DIR}/client.conf.remote.$$"
+            exit 0
+        fi
+    fi
+
     # 检查是否被禁用
     if [ -f "$KD/DISABLED" ]; then
         echo "检测到 DISABLED 标记，退出看板"
@@ -331,6 +417,7 @@ while true; do
     # 拉取最新屏幕图片
     REQ_URL=$(get_request_url)
     if wget -q -T 15 -O "$NEW_PNG" "$REQ_URL"; then
+        FAIL_COUNT=0
         # 检查是否需要全刷清残影
         if [ "$GHOST_CLEAR_SECONDS" -gt 0 ] && [ $((NOW - LAST_GHOST)) -ge "$GHOST_CLEAR_SECONDS" ]; then
             echo "$(date '+%H:%M:%S') 定时全屏清残影..."
@@ -346,11 +433,14 @@ while true; do
                 echo "$(date '+%H:%M:%S') 看板刷屏成功"
             else
                 echo "$(date '+%H:%M:%S') eips 刷屏失败，保留旧图并在下次重试"
-                rm -f "$NEW_PNG"
             fi
         fi
+        rm -f "$NEW_PNG"
     else
+        rm -f "$NEW_PNG"
+        FAIL_COUNT=$((FAIL_COUNT + 1))
         echo "$(date '+%H:%M:%S') 拉取图片失败，保持当前画面"
+        recover_wifi_if_needed "$NOW"
     fi
 
     # 日志控制：超过 100KB 时截断保留最新
